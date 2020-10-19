@@ -15,17 +15,16 @@ C     -_________________________________________________________________________
 
 c     Vector (real*4) for hut ntuples - needs to match dimension of variables
       real*4  shms_hut(24)
-      real*4  shms_spec(58)
-
+      real*4  shms_spec(59)
       real*4  hms_hut(24)
 c     
       real*8 xs_num,ys_num,xc_sieve,yc_sieve
       real*8 xsfr_num,ysfr_num,xc_frsieve,yc_frsieve
       logical use_front_sieve /.false./
-      logical use_sieve /.false./ 
+      logical use_sieve /.false./
 c     
       common /sieve_info/  xs_num,ys_num,xc_sieve,yc_sieve
-     >     ,xsfr_num,ysfr_num,xc_frsieve,yc_frsieve,use_sieve
+     >,xsfr_num,ysfr_num,xc_frsieve,yc_frsieve,use_sieve,use_front_sieve
 
 
 C     Local declarations.
@@ -45,12 +44,12 @@ C     Event limits, topdrawer limits, physics quantities
       real*8 gen_lim(8)         !M.C. phase space limits.
       real*8 gen_lim_up(3)
       real*8 gen_lim_down(3)
-      real *8 gen_mom           !local variable for track momentum in elastic event
+      real*8 gen_mom            !local variable for track momentum in elastic event
 
       real*8 cut_dpp,cut_dth,cut_dph,cut_z !cuts on reconstructed quantities
       real*8 xoff,yoff,zoff     !Beam offsets
       real*8 spec_xoff,spec_yoff,spec_zoff !Spectrometer offsets
-      real*8 spec_xpoff, spec_ypoff !Spectrometer angle offsets
+      real*8 spec_xpoff,spec_ypoff !Spectrometer angle offsets
       real*8 th_ev,cos_ev,sin_ev !cos and sin of event angle
 
       real*8 cos_ts,sin_ts      !cos and sin of spectrometer angle
@@ -58,14 +57,17 @@ C     Event limits, topdrawer limits, physics quantities
 
       real*8 x_a,y_a,z_a,dydz_a,dif_a,dydz_aa,dif_aa ! TH - for target aperture check
       real*8 musc_targ_len      !target length for multiple scattering
+      real*8 foil_nm, foil_tk   !multifoil target
+      real*8 foil_zcent
+      parameter (foil_tk=0.02)
       real*8 m2                 !particle mass squared.
       real*8 rad_len_cm         !conversion r.l. to cm for target
       real*8 pathlen            !path length through spectrometer.
       logical*4 ok_spec         !indicates whether event makes it in MC
       integer*4 hit_calo        !flag for hitting the calorimeter
       integer*4 armSTOP_successes,armSTOP_trials
-      real *8 beam_energy, el_energy, theta_sc, tar_atom_num, tar_mass !elastic calibration
-
+      real*8 beam_energy, el_energy, theta_sc  !elastic calibration
+      real*8 tar_mass, tar_atom_num            !elastic calibration
 C     Initial and reconstructed track quantities.
       real*8 dpp_init,dth_init,dph_init,xtar_init,ytar_init,ztar_init
       real*8 dpp_recon,dth_recon,dph_recon,ztar_recon,ytar_recon
@@ -407,11 +409,15 @@ C     Strip off header
       write(*,*),str_line(1:last_char(str_line))
       if (.not.rd_int(str_line,tmp_int)) 
      >     stop 'ERROR: sieve_flag in setup file!'
-      if (tmp_int.eq.1) use_sieve = .true.
+      if (tmp_int.eq.1) then
+        if (ispec.eq.1) use_sieve=.true.
+        if (ispec.eq.2) use_sieve=.true.
+        if (ispec.eq.2) use_front_sieve=.false.
+      endif
       
 !     Read in flag for 'beam energy(MeV)' to trigger on elastic event if present
-      beam_energy=-0.1  !by default do not use elastic event generator
-      tar_atom_num=12.  !by default it is carbon
+      beam_energy=-0.1          !by default do not use elastic event generator
+      tar_atom_num=12.          !by default it is carbon
       read (chanin,1001,end=1000,err=1000) str_line
       write(*,*),str_line(1:last_char(str_line))
       iss = rd_real(str_line,beam_energy)
@@ -420,6 +426,7 @@ C     Strip off header
       read (chanin,1001,end=1000,err=1000) str_line
       write(*,*),str_line(1:last_char(str_line))
       iss = rd_real(str_line,tar_atom_num)
+
 
  1000 continue
 
@@ -438,7 +445,7 @@ C     Set particle masses.
       endif
 
 C------------------------------------------------------------------------------C
-C     Top of Monte-Carlo loop                            C
+C                          Top of Monte-Carlo loop                             C
 C------------------------------------------------------------------------------C
 
       stime = secnds(zero)
@@ -448,11 +455,10 @@ C------------------------------------------------------------------------------C
       pid=getpid()
       itime=time8()
       call ctime(itime,timestring)
-! next line is to initialize the random seed. But it does not work since this program
-! uses random gernerator written in 'mt19937.f'  
-!      call srand(itime)      ! does not work for mt19937.f
-       call sgrnd(pid+itime)  ! this will work for mt19937.f
-
+      write(6,*) 'Using random seed based on clock time + pid'
+      write(6,*) 'Starting random number seed: ',itime + pid
+C DJG - If you want to use default (fixed) seed, comment out the line below
+      call sgrnd(pid+itime)     !add pid into the seed to ensure multiple jobs can be started at the same time
 
       do Itrial = 1,n_trials
          if(ispec.eq.1) then
@@ -473,7 +479,33 @@ C     Units are cm.
 !     TH - use a double precision for random number generation here.
          x = gauss1(th_nsig_max) * gen_lim(4) / 6.0 !beam width
          y = gauss1(th_nsig_max) * gen_lim(5) / 6.0 !beam height
-         z = (grnd() - 0.5) * gen_lim(6) !along target
+
+         if (gen_lim(6).gt.0) then                      
+            z = (grnd() - 0.5) * gen_lim(6)             !along target
+
+         elseif (gen_lim(6).eq.-3) then                 !optics1: three foils
+            foil_nm=3*grnd()-1.5                       !20um foils;  z=0, +/- 10cm
+            foil_nm=anint(foil_nm)                     != -1, 0, 1
+            foil_zcent = foil_nm * 10
+            z = (grnd() - 0.5) * foil_tk+ foil_nm * 10
+
+         elseif (gen_lim(6).eq.-2) then                 !optics2: two foils
+            foil_nm=grnd()                             !20um foils; z= +/- 5cm
+            foil_nm=anint(foil_nm)                     != 0, 1
+            foil_zcent = foil_nm * 5
+            z = (grnd() - 0.5) * foil_tk - 5+ foil_nm * 10
+             
+         elseif (gen_lim(6).eq.-5) then
+            foil_nm=5*grnd()-2.5                       !pol target optics:5 foils 
+            foil_nm=anint(foil_nm)                     !20um foils; z=20,13.34,0,-20,-30
+            if (foil_nm .eq. -2) foil_zcent = 20.
+            if (foil_nm .eq. -1) foil_zcent = 13.34
+            if (foil_nm .eq. 0)  foil_zcent = 0.0
+            if (foil_nm .eq. 1) foil_zcent = -20.
+            if (foil_nm .eq. 2) foil_zcent = -30.
+            z= (grnd() - 0.5) * foil_tk + foil_zcent
+
+          endif
 
 C     DJG Assume flat raster
          fr1 = (grnd() - 0.5) * gen_lim(7) !raster x
@@ -576,13 +608,19 @@ C     1. cryocylinder: Basic cylinder(2.65 inches diameter --> 3.37 cm radius) w
 C     2. cryotarg2017: Cylinder (1.32 inches radisu)  with curved exit window (same radius) 5 mil sides/exit
 C     3. Tuna can: shaped like a tuna can - 4 cm diameter (usually)  - 5 mil window. 
          if (abs(gen_lim(6)).gt.3.) then ! anything longer than 3 cm assumed to be cryotarget
-c     call cryotuna(z,th_ev,rad_len_cm,gen_lim(6),musc_targ_len)
-c     call cryocylinder(z,th_ev,rad_len_cm,gen_lim(6),musc_targ_len)
+c           call cryotuna(z,th_ev,rad_len_cm,gen_lim(6),musc_targ_len)
+c           call cryocylinder(z,th_ev,rad_len_cm,gen_lim(6),musc_targ_len)
             call cryotarg2017(z,th_ev,rad_len_cm,gen_lim(6),musc_targ_len)
 C     Simple solid target
          else
-            musc_targ_len = abs(gen_lim(6)/2. - z)/rad_len_cm/cos_ev
+            if (gen_lim(6).gt.0) then
+               musc_targ_len = abs(gen_lim(6)/2. - z)/rad_len_cm/cos_ev
+            else ! using multifoil target
+               musc_targ_len = abs(foil_tk/2. - (z-foil_zcent))/rad_len_cm/cos_ev
+            endif
          endif
+!Jixie: the above 'musc_targ_len' did not consider the target radius, therefore it might not work for long target
+!       It also not work well for multiple-foil-target   
 
 C     Scattering before magnets:  Approximate all scattering as occuring AT TARGET.
 C     SHMS
@@ -598,10 +636,10 @@ C     spectrometer entrance window
 C     15 mil Kevlar (X0=74.6 cm)
 C     5 mil Mylar (X0=28.7 cm)
 
-         if(ispec.eq.2) then
+         if (ispec.eq.2) then
             musc_targ_len = musc_targ_len + .020*2.54/8.89 +
      >           57.27/30420. +  .010*2.54/8.89
-         elseif(ispec.eq.1) then
+         elseif (ispec.eq.1) then
             musc_targ_len = musc_targ_len + .020*2.54/8.89 +
      >           24.61/30420. +  .015*2.54/74.6 + .005*2.54/28.7
          endif
@@ -633,6 +671,7 @@ c
 
 !     ----------------------------------------------------------------------------
          if(ispec.eq.2) then
+         
             call mc_shms(p_spec, th_spec, dpp_s, x_s, y_s, z_s, 
      >           dxdz_s, dydz_s,
      >           x_fp, dx_fp, y_fp, dy_fp, m2, shms_spec,
@@ -640,9 +679,15 @@ c
      >           ok_spec, pathlen, 5)
 
             if (spec_ntuple) then
+               shms_spec(59) = shmsSTOP_id
+               shms_spec(58)= ytar_init
+               shms_spec(53)= dpp_init
+               shms_spec(54)= dph_init ! dx/dz (mr)
+               shms_spec(55)= dth_init ! dy/dz (mr)
+c            if (ok_spec) spec(58) =1.
                call hfn(1412,shms_spec)
             endif
-         elseif(ispec.eq.1) then
+         elseif (ispec.eq.1) then
             call mc_hms(p_spec, th_spec, dpp_s, x_s, y_s, z_s, 
      >           dxdz_s, dydz_s,
      >           x_fp, dx_fp, y_fp, dy_fp, m2,
@@ -657,7 +702,12 @@ c
             dpp_recon = dpp_s
             dth_recon = dydz_s*1000. !mr
             dph_recon = dxdz_s*1000. !mr
-            ztar_recon = + y_s / sin_ts 
+!            ztar_recon = + y_s / sin_ts  !By Jixie: this is wrong, use next block instead
+            if (ispec .eq. 1) then ! hms
+               ztar_recon = (y_s+spec_yoff-x*(cos_ts +dydz_s*sin_ts))/(+sin_ts-dydz_s*cos_ts)
+            else if (ispec .eq. 2) then ! shms
+               ztar_recon = (y_s+spec_yoff-x*(cos_ts -dydz_s*sin_ts))/(-sin_ts-dydz_s*cos_ts)
+            endif 
             ytar_recon = y_s
 
 C     Compute sums for calculating reconstruction variances.
@@ -670,7 +720,7 @@ C     Compute sums for calculating reconstruction variances.
             dth_var(2) = dth_var(2) + (dth_recon - dth_init)**2
             dph_var(2) = dph_var(2) + (dph_recon - dph_init)**2
             ztg_var(2) = ztg_var(2) + (ztar_recon - ztar_init)**2
-         endif			!Incremented the arrays
+         endif !Incremented the arrays
 
 
 C     Output NTUPLE entry.
@@ -693,24 +743,27 @@ C     for spectrometer ntuples
                shms_hut(13)= dpp_recon
                shms_hut(14)= dth_recon/1000.
                shms_hut(15)= dph_recon/1000.
-               shms_hut(16)= fry
-               shms_hut(17)= xs_num
-               shms_hut(18)= ys_num
-               shms_hut(19)= xc_sieve
-               shms_hut(20)= yc_sieve
-               shms_hut(21)= shmsSTOP_id
-               shms_hut(22)= x
-               shms_hut(23)= y
-               shms_hut(24)= z
                if (use_front_sieve) then
                   shms_hut(17)= xsfr_num
                   shms_hut(18)= ysfr_num
                   shms_hut(19)= xc_frsieve
                   shms_hut(20)= yc_frsieve
                endif
+              if (use_sieve) then
+               shms_hut(16)= fry
+               shms_hut(17)= xs_num
+               shms_hut(18)= ys_num
+               shms_hut(19)= xc_sieve
+               shms_hut(20)= yc_sieve
+               endif
+               shms_hut(21)= shmsSTOP_id
+               shms_hut(22)= x
+               shms_hut(23)= y
+               shms_hut(24)= z
                call hfn(1411,shms_hut)
             endif
          endif
+!Jixie:  front sieve is not yet work in this program, need to discuss ...
 
          if(ispec.eq.1) then
             if (store_all.OR.(hut_ntuple.AND.ok_spec)) then
@@ -730,10 +783,12 @@ C     for spectrometer ntuples
                hms_hut(14)= dth_recon/1000.
                hms_hut(15)= dph_recon/1000.
                hms_hut(16)= fry
-               hms_hut(17)= xs_num
-               hms_hut(18)= ys_num
-               hms_hut(19)= xc_sieve
-               hms_hut(20)= yc_sieve
+               if (use_sieve) then
+                  hms_hut(17)= xs_num
+                  hms_hut(18)= ys_num
+                  hms_hut(19)= xc_sieve
+                  hms_hut(20)= yc_sieve
+               endif
                hms_hut(21)= hSTOP_id
                hms_hut(22)= x
                hms_hut(23)= y
@@ -750,7 +805,7 @@ C     Loop for remainder of trials.
       enddo                     !End of M.C. loop
 
 C------------------------------------------------------------------------------C
-C     End of Monte-Carlo loop                            C
+C                           End of Monte-Carlo loop                            C
 C------------------------------------------------------------------------------C
 
 C     Close NTUPLE file.
@@ -860,16 +915,16 @@ C     =============================== Format Statements ========================
      >     g11.5,'= GEN_LIM(1) - DP/P   (half width,% )',/,
      >     g11.5,'= GEN_LIM(2) - Theta  (half width,mr)',/,
      >     g11.5,'= GEN_LIM(3) - Phi    (half width,mr)',/,
-     >g11.5,'= GEN_LIM(4) - HORIZ (full width of 3 sigma cutoff,cm)',/,
-     >g11.5,'= GEN_LIM(5) - VERT  (full width of 3 sigma cutoff,cm)',/,
-     >g11.5,'= GEN_LIM(6) - Z      (Full width,cm)')
+     >     g11.5,'= GEN_LIM(4) - HORIZ (full width of 3 sigma cutoff,cm)',/,
+     >     g11.5,'= GEN_LIM(5) - VERT  (full width of 3 sigma cutoff,cm)',/,
+     >     g11.5,'= GEN_LIM(6) - Z      (Full width,cm)')
 
-!     inp     >	,/,
-!     inp     >	g18.8,' =  Hor. 1/2 gap size (cm)',/,
-!     inp     >	g18.8,' =  Vert. 1/2 gap size (cm)')
+!inp     >  ,/,
+!inp     >  g18.8,' =  Hor. 1/2 gap size (cm)',/,
+!inp     >  g18.8,' =  Vert. 1/2 gap size (cm)')
 
  1005 format('!',/,'! Summary:',/,'!',/,
-!     >	i,' Monte-Carlo trials:')
+!     >     i,' Monte-Carlo trials:')
      >     i11,' Monte-Carlo trials:')
 
  1006 format(i11,' Initial Trials',/
@@ -880,7 +935,7 @@ C     =============================== Format Statements ========================
      >     i11,' Trial cut in s2',/
      >     i11,' Trial cut in s3',/
      >     i11,' Trial cut in cal',/
-     >i11,' Trials made it thru the detectors and were reconstructed',/
+     >     i11,' Trials made it thru the detectors and were reconstructed',/
      >i11,' Trials passed all cuts and were histogrammed.',/
      >)
 
@@ -890,14 +945,14 @@ C     =============================== Format Statements ========================
      >     i11,' Trial cut in dc2',/
      >     i11,' Trial cut in scin',/
      >     i11,' Trial cut in cal',/
-     >i11,' Trials made it thru the detectors and were reconstructed',/
+     >     i11,' Trials made it thru the detectors and were reconstructed',/
      >i11,' Trials passed all cuts and were histogrammed.',/
      >)
 
 
-!1008	format(8i)
-!1009	format(1x,i4,g,i)
-!1010	format(a,i)
+!1008 format(8i)
+!1009 format(1x,i4,g,i)
+!1010 format(a,i)
  1011 format(
      >     'DPP ave error, resolution = ',2g18.8,' %',/,
      >     'DTH ave error, resolution = ',2g18.8,' mr',/,
