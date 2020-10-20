@@ -1,8 +1,8 @@
       subroutine shms_hbook_init(filename,spec_ntuple)
-C     Initialize ntuples differently based on which spectrometer we
-C     are using
-C     
-C     HBOOK/NTUPLE common block and parameters.
+C Initialize ntuples differently based on which spectrometer we
+C are using
+C
+C HBOOK/NTUPLE common block and parameters.
       character*80 filename
       logical*4 spec_ntuple
       integer*4 pawc_size
