@@ -404,13 +404,6 @@ C Strip off header
      > stop 'ERROR: store_all in setup file!'
 	if (tmp_int.eq.1) store_all = .true.
 
-!     Read in flag for 'beam energy(MeV)' to trigger on elastic event if present
-      beam_energy=-0.1  !by default do not use elastic event generator
-      tar_atom_num=12.  !by default it is carbon
-      read (chanin,1001,end=1000,err=1000) str_line
-      write(*,*),str_line(1:last_char(str_line))
-      iss = rd_real(str_line,beam_energy)
-      
 ! Read in flag to use sieve
 	read (chanin,1001,end=1000,err=1000) str_line
 	write(*,*),str_line(1:last_char(str_line))
@@ -422,6 +415,13 @@ C Strip off header
 	  if (ispec.eq.2) use_front_sieve=.false.
 	endif
 
+!     Read in flag for 'beam energy(MeV)' to trigger on elastic event if present
+      beam_energy=-0.1  !by default do not use elastic event generator
+      tar_atom_num=12.  !by default it is carbon
+      read (chanin,1001,end=1000,err=1000) str_line
+      write(*,*),str_line(1:last_char(str_line))
+      iss = rd_real(str_line,beam_energy)
+      
 !     Read in flag for 'target atomic number (Z+N)' for elastic event if present
       read (chanin,1001,end=1000,err=1000) str_line
       write(*,*),str_line(1:last_char(str_line))
