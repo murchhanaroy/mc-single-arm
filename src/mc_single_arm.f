@@ -508,10 +508,23 @@ C Units are cm.
           endif
           
 C DJG Assume flat raster
-	  fr1 = (grnd() - 0.5) * gen_lim(7)   !raster x
-	  fr2 = (grnd() - 0.5) * gen_lim(8)   !raster y
+	 ! fr1 = (grnd() - 0.5) * gen_lim(7)   !raster x
+	 ! fr2 = (grnd() - 0.5) * gen_lim(8)   !raster y
 
-	  fry = -fr2  !+y = up, but fry needs to be positive when pointing down
+	 ! fry = -fr2  !+y = up, but fry needs to be positive when pointing down
+
+C For circular/elliptical/square/rectangular raster
+
+	  u1=grnd()
+	  u2=grnd()
+	  spot_x=gen_lim(7)
+	  spot_y=gen_lim(8)
+	  fr1=(u1-0.5)*2.*spot_x
+	  fr2=(u2-0.5)*2.*spot_y*sqrt(1-(x/spot_x)**2.) ! if circular/elliptical raster
+        ! fr2=(u2-0.5)*2.*spot_y ! if square/rectangular raster
+
+          fry = -fr2  !+y = up, but fry needs to be positive when pointing down
+
 
 	  x = x + fr1
 	  y = y + fr2
