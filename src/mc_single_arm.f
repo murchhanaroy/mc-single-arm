@@ -72,7 +72,7 @@ C Initial and reconstructed track quantities.
 	real*8 dpp_init,dth_init,dph_init,xtar_init,ytar_init,ztar_init
 	real*8 dpp_recon,dth_recon,dph_recon,ztar_recon,ytar_recon
 	real*8 x_fp,y_fp,dx_fp,dy_fp		!at focal plane
-	real*8 fry,fr1,fr2
+	real*8 fry,fr1,fr2,u1,u2,spot_x,spot_y
 	real*8 p_spec,th_spec			!spectrometer setting
 	real*8 resmult
 
@@ -519,9 +519,9 @@ C For circular/elliptical/square/rectangular raster
 	  u2=grnd()
 	  spot_x=gen_lim(7)
 	  spot_y=gen_lim(8)
-	  fr1=(u1-0.5)*2.*spot_x
-	  fr2=(u2-0.5)*2.*spot_y*sqrt(1-(x/spot_x)**2.) ! if circular/elliptical raster
-        ! fr2=(u2-0.5)*2.*spot_y ! if square/rectangular raster
+	  fr1= sqrt(u1)*0.5*spot_x*cos(u2*2.*pi)
+	  fr2= sqrt(u1)*0.5*spot_y*sin(u2*2.*pi) ! if circular raster
+	 ! fr2=(u2-0.5)*2.*spot_y ! if square/rectangular raster
 
           fry = -fr2  !+y = up, but fry needs to be positive when pointing down
 
