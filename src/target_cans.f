@@ -147,6 +147,8 @@ C Some dimensions are hardwired for now (or forever...).
 
       twall = 0.15/7.04        ! rad length of GE180 wall is 7.04 cm
       tcm=z+targlen/2.0        ! length of target already traversed in cm
+      if(tcm.lt.0) tcm=0
+      if(tcm.gt.targlen) tcm=targlen
 
       if((tcm+ecir/tan(th)) .lt. entec) then  ! e goes through sidewall
           tgas=ecir/sin(th)/rad_len   ! rad length of gaseous target the particle will go thru

@@ -86,7 +86,7 @@ C Control flags (from input file)
 c	common /hutflag/ cer_flag,vac_flag
 C Hardwired control flags.
 	logical*4 hut_ntuple	/.true./
-        logical*4 spec_ntuple   /.true./
+	logical*4 spec_ntuple   /.false./    !Jixie: turn it off for now since I do not need it
 	logical*4 decay_flag	/.false./
 
 	real*8	dpp_var(2),dth_var(2),dph_var(2),ztg_var(2)
@@ -466,7 +466,7 @@ C DJG - If you want to use default (fixed) seed, comment out the line below
 	   elseif(ispec.eq.2) then
 	      armSTOP_successes=shmsSTOP_successes
 	   endif
-	  if(mod(Itrial,5000).eq.0) write(*,*)'event #: ',
+	  if(mod(Itrial,10000).eq.0) write(*,*)'event #: ',
      >Itrial,'       successes: ',armSTOP_successes
 
 
@@ -612,8 +612,10 @@ C Choices:
 C 1. cryocylinder: Basic cylinder(2.65 inches diameter --> 3.37 cm radius) w/flat exit window (5 mil Al)
 C 2. cryotarg2017: Cylinder (1.32 inches radisu)  with curved exit window (same radius) 5 mil sides/exit
 C 3. Tuna can: shaped like a tuna can - 4 cm diameter (usually)  - 5 mil window. 
+C 4. Helium3 target, 40 cm long, 2.54" radius, window thickness 0.14mm, wall thickness 1.5mm
 	  if (gen_lim(6).gt.35.) then ! anything longer than 35 cm assumed to be helium3 gaseous target
-	    call he3targ2019(z,th_ev,rad_len_cm,gen_lim(6),musc_targ_len)
+C	    call he3targ2019(z,th_ev,rad_len_cm,gen_lim(6),musc_targ_len)   
+	    call he3targ2019(z,th_ev,rad_len_cm,40.0,musc_targ_len)  !specify 40 cm length all the time
 	  elseif (gen_lim(6).gt.3.) then ! anything longer than 3 cm assumed to be cryotarget
 c	    call cryotuna(z,th_ev,rad_len_cm,gen_lim(6),musc_targ_len)
 c	    call cryocylinder(z,th_ev,rad_len_cm,gen_lim(6),musc_targ_len)
