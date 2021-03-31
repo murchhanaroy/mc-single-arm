@@ -1,8 +1,8 @@
 !------------------------------------------------------------------------------
 ! Input file for MC_SINGLE_ARM                  
-! A1N|D2N Exp., 40cm He3 target                 
+! A1N|D2N Exp., 40cm He3 target, no more than 20M|6M events w|o spec tree                 
 !------------------------------------------------------------------------------
- 20000000       Monte-Carlo trials, 6.25M events will have 2G rzdat output file 
+ 20000000       Monte-Carlo trials, 6.25M events (with spec tree) will have 2G rzdat output file
         2       Spectrometer (1=HMS, 2=SHMS, 3=..)
    3400.0       Spectrometer momentum (in MeV/c)
      30.0       Spectrometer angle (in degrees)C
