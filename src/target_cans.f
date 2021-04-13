@@ -107,10 +107,9 @@ c      targlen=3.942*2.54        ! target length (cm)
      >     (sqrt(ecir**2-((targlen-ecir-tcm)*sin(th))**2)
      >    +(targlen-ecir-tcm)*cos(th))/rad_len ! liquid target
 
-          tal=                           ! wall
+          tal=                           ! aluminum end cap
      >    +(sqrt(ecor**2-((targlen-ecir-tcm)*sin(th))**2)
-     >    -sqrt(ecir**2-((targlen-ecir-tcm)*sin(th))**2))
-     >    *twall/(ecor-ecir)                   ! & end cap
+     >    -sqrt(ecir**2-((targlen-ecir-tcm)*sin(th))**2))/8.89 
         endif
 
         musc_len = tliquid+tal
@@ -119,7 +118,7 @@ c      targlen=3.942*2.54        ! target length (cm)
         end
 ***************************************************************        
 c Added by Jixie for polorized he3 target, no target chamber 
-c ignorring particle's raster position, assume it is 0 
+c ignorring particle's raster position, assume it is (0,0) 
       subroutine he3targ2019(z,th,rad_len,targlen,musc_len)
       implicit none
 C calculate radiation length traversed by scattered particle
@@ -141,7 +140,7 @@ C This cell is a cylinder with a round end. Wall thickness = 1.5 mm
 C The window thickness is about 0.14 mm
 C Some dimensions are hardwired for now (or forever...).
       ecir=0.87*2.54           ! endcap inner radius (cm)
-      ecor=ecor+0.014          ! endcap outer radius (cm)
+      ecor=ecir+0.014          ! endcap outer radius (cm)
       
       entec=targlen-ecir       ! entrance to end cap (cm)
 
@@ -150,24 +149,23 @@ C Some dimensions are hardwired for now (or forever...).
       if(tcm.lt.0) tcm=0
       if(tcm.gt.targlen) tcm=targlen
 
-      if((tcm+ecir/tan(th)) .lt. entec) then  ! e goes through sidewall
-          tgas=ecir/sin(th)/rad_len   ! rad length of gaseous target the particle will go thru
-          tal=twall/sin(th)           ! wall material the particle will go thru
-        else  ! e goes throught end cap
-          tgas=                          ! gas   
+      if((tcm+ecir/tan(th)) .lt. entec) then  ! e goes through side-wall
+        tgas=ecir/sin(th)/rad_len   ! rad length of gaseous target the particle will go thru
+        tal=twall/sin(th)           ! wall material the particle will go thru
+      else  ! e goes throught end-cap
+        tgas=                          ! gas   
      >     (sqrt(ecir**2-((targlen-ecir-tcm)*sin(th))**2)
      >    +(targlen-ecir-tcm)*cos(th))/rad_len ! gaseous target
 
-          tal=                           ! wall
+        tal=                           ! glass sphere shell end cap
      >    +(sqrt(ecor**2-((targlen-ecir-tcm)*sin(th))**2)
-     >    -sqrt(ecir**2-((targlen-ecir-tcm)*sin(th))**2))
-     >    *twall/(ecor-ecir)             ! & end cap
-        endif
+     >    -sqrt(ecir**2-((targlen-ecir-tcm)*sin(th))**2))/7.04 
+      endif
 
 C outside the target cell, there is about 44cm helium4 gas and ~2mm nylon helium bag
 C the rad. length of nylon is about 35.0cm 
-        musc_len = tgas+tal + 44./5.671E5 + 0.2/35.0 
+      musc_len = tgas+tal + 44./5.671E5 + 0.2/35.0 
 
-        return
-        end
+      return
+      end
 ***************************************************************        

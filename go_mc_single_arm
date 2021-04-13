@@ -12,7 +12,7 @@ if($#argv >= 2) set runmin = ($2)
 set runmax = 1
 if($#argv >= 3) set runmax = ($3)
 
-source ~/_cshrc  #to load h2root
+#source ~/_cshrc  #to load h2root
 
 cd src
 set run = ($runmin)
